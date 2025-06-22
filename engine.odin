@@ -6,12 +6,27 @@ import sdl "vendor:sdl3"
 
 DEPTH_TEXTURE_FORMAT :: sdl.GPUTextureFormat.D16_UNORM
 
+WindowEvent :: sdl.WindowEvent
+KeyboardEvent :: sdl.KeyboardEvent
+MouseMotionEvent :: sdl.MouseMotionEvent
+MouseButtonEvent :: sdl.MouseButtonEvent
+MouseWheelEvent :: sdl.MouseWheelEvent
+
+EngineEvent :: union {
+	WindowEvent,
+	KeyboardEvent,
+	MouseMotionEvent,
+	MouseButtonEvent,
+	MouseWheelEvent,
+}
+
 EngineContext :: struct {
 	window:      ^sdl.Window,
 	device:      ^sdl.GPUDevice,
 	depth_tex:   ^sdl.GPUTexture,
 	is_running:  bool,
 	last_tick:   f64,
+	events:      [dynamic]EngineEvent,
 	pipeline_3d: ^sdl.GPUGraphicsPipeline,
 }
 
@@ -143,6 +158,7 @@ init_engine :: proc(title: cstring, config: Config) {
 	)
 
 	ctx.last_tick = f64(sdl.GetTicks())
+	ctx.events = make([dynamic]EngineEvent)
 	ctx.depth_tex = create_depth_texture(i32(config.width), i32(config.height))
 	ctx.pipeline_3d = create_pipeline_3d()
 }
@@ -151,6 +167,7 @@ destroy_engine :: proc() {
 	if current_frame != nil {
 		free(current_frame)
 	}
+	delete(ctx.events)
 	sdl.ReleaseGPUGraphicsPipeline(ctx.device, ctx.pipeline_3d)
 	sdl.ReleaseGPUTexture(ctx.device, ctx.depth_tex)
 	sdl.ReleaseWindowFromGPUDevice(ctx.device, ctx.window)
@@ -168,6 +185,7 @@ run_engine :: proc(delta: ^f64) -> bool {
 	delta^ = curr_tick - ctx.last_tick
 	ctx.last_tick = curr_tick
 
+	clear(&ctx.events)
 	event: sdl.Event
 	for sdl.PollEvent(&event) {
 		#partial switch event.type {
@@ -176,10 +194,44 @@ run_engine :: proc(delta: ^f64) -> bool {
 		case .WINDOW_RESIZED:
 			sdl.ReleaseGPUTexture(ctx.device, ctx.depth_tex)
 			ctx.depth_tex = create_depth_texture(event.window.data1, event.window.data2)
+			append(&ctx.events, event.window)
+		case .KEY_DOWN, .KEY_UP:
+			append(&ctx.events, event.key)
+		case .MOUSE_MOTION:
+			append(&ctx.events, event.motion)
+		case .MOUSE_BUTTON_DOWN, .MOUSE_BUTTON_UP:
+			append(&ctx.events, event.button)
+		case .MOUSE_WHEEL:
+			append(&ctx.events, event.wheel)
 		}
 	}
 
 	return ctx.is_running
+}
+
+query_event :: proc($T: typeid) -> (event: ^T, found: bool) {
+	for e, i in ctx.events {
+		#partial switch event in e {
+		case T:
+			return &ctx.events[i].(T), true
+		}
+	}
+	return nil, false
+}
+
+is_key_down :: proc(key: sdl.Keycode) -> bool {
+	e := query_event(KeyboardEvent) or_return
+	return e.key == key && e.down
+}
+
+is_key_up :: proc(key: sdl.Keycode) -> bool {
+	e := query_event(KeyboardEvent) or_return
+	return e.key == key && !e.down
+}
+
+is_key_repeat :: proc(key: sdl.Keycode) -> bool {
+	e := query_event(KeyboardEvent) or_return
+	return e.key == key && e.repeat
 }
 
 begin_frame :: proc(clear_color: [4]f32) {

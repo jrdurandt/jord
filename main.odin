@@ -4,6 +4,8 @@ import "core:log"
 import "core:math/linalg"
 import "core:mem"
 
+import sdl "vendor:sdl3"
+
 main :: proc() {
 	context.logger = log.create_console_logger(.Info)
 	defer log.destroy_console_logger(context.logger)
@@ -52,7 +54,22 @@ main :: proc() {
 	rotation: f32 = 0
 
 	delta: f64
-	for run_engine(&delta) {
+	main_loop: for run_engine(&delta) {
+		if e, ok := query_event(WindowEvent); ok {
+			aspect_ratio := f32(e.data1) / f32(e.data2)
+			ubo.projection = linalg.matrix4_perspective_f32(
+				linalg.PI / 4,
+				aspect_ratio,
+				0.1,
+				100.0,
+			)
+		}
+
+		if is_key_down(sdl.K_ESCAPE) {
+			ctx.is_running = false
+			break main_loop
+		}
+
 		rotation += 90 * f32(delta) / 1000.0
 		ubo.model =
 			linalg.matrix4_rotate_f32(linalg.to_radians(rotation), {0, 1, 0}) *
