@@ -32,4 +32,7 @@ main :: proc() {
 		}
 	}
 	log.debug("Debug enabled")
+
+	config := load_config() or_else panic("Failed to load config")
+	log.debugf("Config: %v", config)
 }
