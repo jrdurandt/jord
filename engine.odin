@@ -20,6 +20,12 @@ Frame :: struct {
 	render_pass: ^sdl.GPURenderPass,
 }
 
+UBO :: struct {
+	model:      matrix[4, 4]f32,
+	view:       matrix[4, 4]f32,
+	projection: matrix[4, 4]f32,
+}
+
 ctx: ^EngineContext
 current_frame: ^Frame
 
@@ -42,10 +48,10 @@ create_depth_texture :: proc(width, height: i32) -> ^sdl.GPUTexture {
 
 @(private)
 create_pipeline_3d :: proc() -> ^sdl.GPUGraphicsPipeline {
-	vertex_shader := load_shader("assets/shaders/compiled/basic.vert.spv")
+	vertex_shader := load_shader("assets/shaders/compiled/basic.vert.spv", num_uniform_buffers = 1)
 	defer sdl.ReleaseGPUShader(ctx.device, vertex_shader)
 
-	fragment_shader := load_shader("assets/shaders/compiled/basic.frag.spv")
+	fragment_shader := load_shader("assets/shaders/compiled/basic.frag.spv", num_samplers = 1)
 	defer sdl.ReleaseGPUShader(ctx.device, fragment_shader)
 
 	vertex_attributes := [?]sdl.GPUVertexAttribute {
@@ -181,7 +187,6 @@ begin_frame :: proc(clear_color: [4]f32) {
 		current_frame = new(Frame)
 	}
 
-	assert(current_frame.cmd_buff == nil)
 	current_frame.cmd_buff = sdl.AcquireGPUCommandBuffer(ctx.device)
 	assert(current_frame.cmd_buff != nil, "Failed to acquire command buffer")
 
@@ -212,7 +217,6 @@ begin_frame :: proc(clear_color: [4]f32) {
 			clear_depth = 1,
 		}
 
-		assert(current_frame.render_pass == nil)
 		current_frame.render_pass = sdl.BeginGPURenderPass(
 			current_frame.cmd_buff,
 			&color_target_info,
@@ -230,11 +234,15 @@ end_frame :: proc() {
 		sdl.SubmitGPUCommandBuffer(current_frame.cmd_buff),
 		"Failed to submit frame command buffer",
 	)
-	current_frame.cmd_buff = nil
-	current_frame.render_pass = nil
 }
 
 bind_3d_pipeline :: proc() {
 	assert(current_frame != nil)
 	sdl.BindGPUGraphicsPipeline(current_frame.render_pass, ctx.pipeline_3d)
+}
+
+bind_ubo :: proc(ubo: UBO, slot: int = 0) {
+	assert(current_frame != nil)
+	ubo := ubo
+	sdl.PushGPUVertexUniformData(current_frame.cmd_buff, u32(slot), &ubo, size_of(ubo))
 }

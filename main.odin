@@ -1,6 +1,7 @@
 package main
 
 import "core:log"
+import "core:math/linalg"
 import "core:mem"
 
 main :: proc() {
@@ -39,23 +40,28 @@ main :: proc() {
 	init_engine("Jord", config)
 	defer destroy_engine()
 
-	vertices := [?]Vertex3D {
-		{position = {-0.5, 0.5, 0.0}, tex_coord = {0.0, 0.0}},
-		{position = {0.5, 0.5, 0.0}, tex_coord = {1.0, 0.0}},
-		{position = {0.5, -0.5, 0.0}, tex_coord = {1.0, 1.0}},
-		{position = {-0.5, -0.5, 0.0}, tex_coord = {0.0, 1.0}},
+	aspect_ratio := f32(config.width) / f32(config.height)
+	ubo := UBO {
+		view       = linalg.matrix4_look_at_f32({0, 0, 5}, {0, 0, 0}, {0, 1, 0}),
+		projection = linalg.matrix4_perspective_f32(linalg.PI / 4, aspect_ratio, 0.1, 100.0),
 	}
 
-	indices := [?]u16{0, 1, 2, 2, 3, 0}
+	damaged_helm := load_model("assets/models/DamagedHelmet.glb")
+	defer release_model(damaged_helm)
 
-	quad := create_mesh(vertices[:], indices[:])
-	defer release_mesh(quad)
+	rotation: f32 = 0
 
 	delta: f64
 	for run_engine(&delta) {
+		rotation += 90 * f32(delta) / 1000.0
+		ubo.model =
+			linalg.matrix4_rotate_f32(linalg.to_radians(rotation), {0, 1, 0}) *
+			linalg.matrix4_rotate_f32(linalg.PI / 2, {1, 0, 0})
+
 		begin_frame({0.15, 0.15, 0.25, 1.0})
 		bind_3d_pipeline()
-		draw_mesh(quad)
+		bind_ubo(ubo)
+		draw_model(damaged_helm)
 		end_frame()
 	}
 }
