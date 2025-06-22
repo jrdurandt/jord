@@ -35,4 +35,13 @@ main :: proc() {
 
 	config := load_config() or_else panic("Failed to load config")
 	log.debugf("Config: %v", config)
+
+	init_engine("Jord", config)
+	defer destroy_engine()
+
+	delta: f64
+	for run_engine(&delta) {
+		begin_frame({0.15, 0.15, 0.25, 1.0})
+		end_frame()
+	}
 }
