@@ -39,9 +39,23 @@ main :: proc() {
 	init_engine("Jord", config)
 	defer destroy_engine()
 
+	vertices := [?]Vertex3D {
+		{position = {-0.5, 0.5, 0.0}, tex_coord = {0.0, 0.0}},
+		{position = {0.5, 0.5, 0.0}, tex_coord = {1.0, 0.0}},
+		{position = {0.5, -0.5, 0.0}, tex_coord = {1.0, 1.0}},
+		{position = {-0.5, -0.5, 0.0}, tex_coord = {0.0, 1.0}},
+	}
+
+	indices := [?]u16{0, 1, 2, 2, 3, 0}
+
+	quad := create_mesh(vertices[:], indices[:])
+	defer release_mesh(quad)
+
 	delta: f64
 	for run_engine(&delta) {
 		begin_frame({0.15, 0.15, 0.25, 1.0})
+		bind_3d_pipeline()
+		draw_mesh(quad)
 		end_frame()
 	}
 }
