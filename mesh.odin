@@ -22,11 +22,10 @@ create_mesh_aos :: proc(vertices: []$T, indices: []$I) -> (mesh: Mesh) {
 	index_buffer_size := size_of(I) * len(indices)
 	mesh.index_count = len(indices)
 
-	index_type: sdl.GPUIndexElementSize
 	when I == u16 {
-		index_type = ._16BIT
+		mesh.index_type = ._16BIT
 	} else when I == u32 {
-		index_type = ._32BIT
+		mesh.index_type = ._32BIT
 	} else {
 		#panic("Unsupported index type. Only u16 or u32 are supported")
 	}

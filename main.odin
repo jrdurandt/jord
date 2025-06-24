@@ -44,11 +44,11 @@ main :: proc() {
 
 	aspect_ratio := f32(config.width) / f32(config.height)
 	ubo := UBO {
-		view       = linalg.matrix4_look_at_f32({0, 0, 5}, {0, 0, 0}, {0, 1, 0}),
+		view       = linalg.matrix4_look_at_f32({0, 5, 5}, {0, 1, 0}, {0, 1, 0}),
 		projection = linalg.matrix4_perspective_f32(linalg.PI / 4, aspect_ratio, 0.1, 100.0),
 	}
 
-	damaged_helm := load_model("assets/models/DamagedHelmet.glb")
+	damaged_helm := load_model("assets/models/island_tree_02/island_tree.glb")
 	defer release_model(damaged_helm)
 
 	rotation: f32 = 0
@@ -71,9 +71,8 @@ main :: proc() {
 		}
 
 		rotation += 90 * f32(delta) / 1000.0
-		ubo.model =
-			linalg.matrix4_rotate_f32(linalg.to_radians(rotation), {0, 1, 0}) *
-			linalg.matrix4_rotate_f32(linalg.PI / 2, {1, 0, 0})
+		ubo.model = linalg.matrix4_rotate_f32(linalg.to_radians(rotation), {0, 1, 0})
+		// linalg.matrix4_rotate_f32(linalg.PI / 2, {1, 0, 0})
 
 		begin_frame({0.15, 0.15, 0.25, 1.0})
 		bind_3d_pipeline()

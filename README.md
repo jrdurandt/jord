@@ -22,3 +22,5 @@ sudo make install
 ```
 
 Ensure you set LD_LIBRARY_PATH: `export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH`
+
+![capture](docs/capture.mp4)
