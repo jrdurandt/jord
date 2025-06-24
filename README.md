@@ -23,4 +23,9 @@ sudo make install
 
 Ensure you set LD_LIBRARY_PATH: `export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH`
 
-![capture](docs/capture.mp4)
+## Demo
+![capture](docs/capture.gif)
+
+## Assets:
+- [Island Tree 02](https://polyhaven.com/a/island_tree_02)
+- [Damaged Helmet](https://github.com/KhronosGroup/glTF-Sample-Models/tree/main/2.0/DamagedHelmet)
