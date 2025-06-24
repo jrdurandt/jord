@@ -118,6 +118,8 @@ load_model :: proc(path: string) -> (model: Model) {
 			offset += stride
 		}
 		return load_texture(data)
+
+		// return load_texture("assets/textures/test.png")
 	}
 
 	//Load materials

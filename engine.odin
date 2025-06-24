@@ -124,6 +124,7 @@ create_pipeline_3d :: proc() -> ^sdl.GPUGraphicsPipeline {
 }
 
 init_engine :: proc(title: cstring, config: Config) {
+	log.debugf("Using SDL3 version: %d", sdl.GetVersion())
 	assert(sdl.Init({.VIDEO}), "Failed to init SDL")
 
 	ctx = new(EngineContext)

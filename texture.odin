@@ -1,11 +1,12 @@
 package main
 import "core:log"
 
+import "core:fmt"
 import "core:mem"
 import "core:os"
 
 import sdl "vendor:sdl3"
-import stbi "vendor:stb/image"
+import sdl_image "vendor:sdl3/image"
 
 Texture :: struct {
 	width, height: i32,
@@ -13,18 +14,25 @@ Texture :: struct {
 	sampler:       ^sdl.GPUSampler,
 }
 
-load_texture_from_data :: proc(
-	data: []byte,
+load_texture_from_surface :: proc(
+	surface: ^sdl.Surface,
 	min_filter: sdl.GPUFilter = .NEAREST,
 	mag_filter: sdl.GPUFilter = .NEAREST,
 	mipmap_mode: sdl.GPUSamplerMipmapMode = .NEAREST,
 	address_mode_u: sdl.GPUSamplerAddressMode = .REPEAT,
 	address_mode_v: sdl.GPUSamplerAddressMode = .REPEAT,
 ) -> Texture {
+	surface := surface
+	defer sdl.DestroySurface(surface)
 
-	width, height: i32
-	img_data := stbi.load_from_memory(raw_data(data), i32(len(data)), &width, &height, nil, 4)
-	log.assertf(img_data != nil, "Failed to read image data: %s", stbi.failure_reason())
+	//We require an RGBA32 image
+	if surface.format != .RGBA32 {
+		log.debugf("Converting image from %s into RGBA32", surface.format)
+		surface = sdl.ConvertSurface(surface, .RGBA32)
+	}
+
+	width := surface.w
+	height := surface.h
 
 	texture := sdl.CreateGPUTexture(
 		ctx.device,
@@ -51,7 +59,7 @@ load_texture_from_data :: proc(
 		defer sdl.ReleaseGPUTransferBuffer(ctx.device, transfer_buffer)
 
 		texture_transfer_ptr := sdl.MapGPUTransferBuffer(ctx.device, transfer_buffer, false)
-		mem.copy(texture_transfer_ptr, img_data, int(tex_size))
+		mem.copy(texture_transfer_ptr, surface.pixels, int(tex_size))
 		sdl.UnmapGPUTransferBuffer(ctx.device, transfer_buffer)
 
 		cmd_buff := sdl.AcquireGPUCommandBuffer(ctx.device)
@@ -81,6 +89,28 @@ load_texture_from_data :: proc(
 	return {width = width, height = height, handle = texture, sampler = sampler}
 }
 
+load_texture_from_data :: proc(
+	data: []u8,
+	min_filter: sdl.GPUFilter = .NEAREST,
+	mag_filter: sdl.GPUFilter = .NEAREST,
+	mipmap_mode: sdl.GPUSamplerMipmapMode = .NEAREST,
+	address_mode_u: sdl.GPUSamplerAddressMode = .REPEAT,
+	address_mode_v: sdl.GPUSamplerAddressMode = .REPEAT,
+) -> Texture {
+	stream := sdl.IOFromMem(raw_data(data), len(data))
+	log.assertf(stream != nil, "Failed to load: %s", sdl.GetError())
+	surface := sdl_image.Load_IO(stream, true)
+
+	return load_texture_from_surface(
+		surface,
+		min_filter,
+		mag_filter,
+		mipmap_mode,
+		address_mode_u,
+		address_mode_v,
+	)
+}
+
 load_texture_from_path :: proc(
 	path: string,
 	min_filter: sdl.GPUFilter = .NEAREST,
@@ -89,14 +119,12 @@ load_texture_from_path :: proc(
 	address_mode_u: sdl.GPUSamplerAddressMode = .REPEAT,
 	address_mode_v: sdl.GPUSamplerAddressMode = .REPEAT,
 ) -> Texture {
-	data :=
-		os.read_entire_file(path, context.temp_allocator) or_else log.panicf(
-			"Failed to load texture: %s",
-			path,
-		)
+	stream := sdl.IOFromFile(fmt.ctprint(path), "rb")
+	log.assertf(stream != nil, "Failed to load: %s", sdl.GetError())
+	surface := sdl_image.Load_IO(stream, true)
 
-	return load_texture_from_data(
-		data,
+	return load_texture_from_surface(
+		surface,
 		min_filter,
 		mag_filter,
 		mipmap_mode,
@@ -106,6 +134,7 @@ load_texture_from_path :: proc(
 }
 
 load_texture :: proc {
+	load_texture_from_surface,
 	load_texture_from_data,
 	load_texture_from_path,
 }
