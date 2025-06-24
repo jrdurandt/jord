@@ -29,3 +29,9 @@ Ensure you set LD_LIBRARY_PATH: `export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRA
 ## Assets:
 - [Island Tree 02](https://polyhaven.com/a/island_tree_02)
 - [Damaged Helmet](https://github.com/KhronosGroup/glTF-Sample-Models/tree/main/2.0/DamagedHelmet)
+
+## TODO:
+- [x] Basic 3D rendering with gltd model
+- [ ] Basic 2D sprites
+- [ ] Fonts, text and UI (microui)
+- [ ] 3D lighting
