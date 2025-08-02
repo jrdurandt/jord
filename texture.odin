@@ -15,6 +15,7 @@ Texture :: struct {
 }
 
 load_texture_from_surface :: proc(
+	using state: State,
 	surface: ^sdl.Surface,
 	min_filter: sdl.GPUFilter = .NEAREST,
 	mag_filter: sdl.GPUFilter = .NEAREST,
@@ -35,7 +36,7 @@ load_texture_from_surface :: proc(
 	height := surface.h
 
 	texture := sdl.CreateGPUTexture(
-		ctx.device,
+		device,
 		{
 			type = .D2,
 			format = .R8G8B8A8_UNORM,
@@ -47,22 +48,22 @@ load_texture_from_surface :: proc(
 		},
 	)
 	assert(texture != nil, "Failed to create GPU texture")
-	sdl.SetGPUTextureName(ctx.device, texture, "TODO")
+	sdl.SetGPUTextureName(device, texture, "TODO")
 
 	tex_size := width * height * 4
 	//Upload to GPU
 	{
 		transfer_buffer := sdl.CreateGPUTransferBuffer(
-			ctx.device,
+			device,
 			{usage = .UPLOAD, size = u32(tex_size)},
 		)
-		defer sdl.ReleaseGPUTransferBuffer(ctx.device, transfer_buffer)
+		defer sdl.ReleaseGPUTransferBuffer(device, transfer_buffer)
 
-		texture_transfer_ptr := sdl.MapGPUTransferBuffer(ctx.device, transfer_buffer, false)
+		texture_transfer_ptr := sdl.MapGPUTransferBuffer(device, transfer_buffer, false)
 		mem.copy(texture_transfer_ptr, surface.pixels, int(tex_size))
-		sdl.UnmapGPUTransferBuffer(ctx.device, transfer_buffer)
+		sdl.UnmapGPUTransferBuffer(device, transfer_buffer)
 
-		cmd_buff := sdl.AcquireGPUCommandBuffer(ctx.device)
+		cmd_buff := sdl.AcquireGPUCommandBuffer(device)
 		copy_pass := sdl.BeginGPUCopyPass(cmd_buff)
 
 		sdl.UploadToGPUTexture(
@@ -76,7 +77,7 @@ load_texture_from_surface :: proc(
 	}
 
 	sampler := sdl.CreateGPUSampler(
-		ctx.device,
+		device,
 		{
 			min_filter = min_filter,
 			mag_filter = mag_filter,
@@ -90,6 +91,7 @@ load_texture_from_surface :: proc(
 }
 
 load_texture_from_data :: proc(
+	state: State,
 	data: []u8,
 	min_filter: sdl.GPUFilter = .NEAREST,
 	mag_filter: sdl.GPUFilter = .NEAREST,
@@ -102,6 +104,7 @@ load_texture_from_data :: proc(
 	surface := sdl_image.Load_IO(stream, true)
 
 	return load_texture_from_surface(
+		state,
 		surface,
 		min_filter,
 		mag_filter,
@@ -112,6 +115,7 @@ load_texture_from_data :: proc(
 }
 
 load_texture_from_path :: proc(
+	state: State,
 	path: string,
 	min_filter: sdl.GPUFilter = .NEAREST,
 	mag_filter: sdl.GPUFilter = .NEAREST,
@@ -124,6 +128,7 @@ load_texture_from_path :: proc(
 	surface := sdl_image.Load_IO(stream, true)
 
 	return load_texture_from_surface(
+		state,
 		surface,
 		min_filter,
 		mag_filter,
@@ -139,12 +144,12 @@ load_texture :: proc {
 	load_texture_from_path,
 }
 
-release_texture :: proc(texture: Texture) {
-	sdl.ReleaseGPUTexture(ctx.device, texture.handle)
-	sdl.ReleaseGPUSampler(ctx.device, texture.sampler)
+release_texture :: proc(using state: State, texture: Texture) {
+	sdl.ReleaseGPUTexture(device, texture.handle)
+	sdl.ReleaseGPUSampler(device, texture.sampler)
 }
 
-bind_texture :: proc(texture: Texture, slot: int = 0) {
+bind_texture :: proc(using state: State, texture: Texture, slot: int = 0) {
 	assert(current_frame != nil)
 
 	sampler_bindings := []sdl.GPUTextureSamplerBinding {
@@ -158,7 +163,7 @@ bind_texture :: proc(texture: Texture, slot: int = 0) {
 	)
 }
 
-bind_textures :: proc(textures: []Texture) {
+bind_textures :: proc(using state: State, textures: []Texture) {
 	assert(current_frame != nil)
 
 	sampler_bindings := make([]sdl.GPUTextureSamplerBinding, len(textures), context.temp_allocator)

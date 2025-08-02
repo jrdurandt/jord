@@ -7,6 +7,7 @@ import "core:strings"
 import sdl "vendor:sdl3"
 
 load_shader :: proc(
+	device: ^sdl.GPUDevice,
 	path: string,
 	num_samplers: u32 = 0,
 	num_uniform_buffers: u32 = 0,
@@ -41,7 +42,7 @@ load_shader :: proc(
 		num_storage_textures = num_storage_textures,
 	}
 
-	shader := sdl.CreateGPUShader(ctx.device, create_info)
+	shader := sdl.CreateGPUShader(device, create_info)
 	log.assertf(shader != nil, "Failed to create shader: %s", path)
 	return shader
 }

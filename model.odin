@@ -18,7 +18,7 @@ Model :: struct {
 	materials: [dynamic]Material,
 }
 
-load_model :: proc(path: string) -> (model: Model) {
+load_model :: proc(state: State, path: string) -> (model: Model) {
 	base_path := filepath.dir(path, context.temp_allocator)
 
 	options := gltf.options{}
@@ -93,19 +93,19 @@ load_model :: proc(path: string) -> (model: Model) {
 			vertices: #soa[]Vertex3D = soa_zip(positions, tex_coords)
 			if index_accessor.component_type == .r_16u {
 				indices := load_buffer_view_data(index_accessor, u16)[:indices_count]
-				mesh = create_mesh(vertices, indices)
+				mesh = create_mesh(state, vertices, indices)
 			} else if index_accessor.component_type == .r_32u {
 				indices := load_buffer_view_data(index_accessor, u32)[:indices_count]
-				mesh = create_mesh(vertices, indices)
+				mesh = create_mesh(state, vertices, indices)
 			}
 			append(&model.meshes, mesh)
 		}
 	}
 
-	load_image_texture :: proc(image: ^gltf.image, base_path: string) -> Texture {
+	load_image_texture :: proc(state: State, image: ^gltf.image, base_path: string) -> Texture {
 		if image.uri != nil {
 			image_path := filepath.join({base_path, string(image.uri)}, context.temp_allocator)
-			return load_texture(image_path)
+			return load_texture(state, image_path)
 		}
 
 		size := image.buffer_view.size
@@ -117,7 +117,7 @@ load_model :: proc(path: string) -> (model: Model) {
 			data[i] = ([^]u8)(image.buffer_view.buffer.data)[offset]
 			offset += stride
 		}
-		return load_texture(data)
+		return load_texture(state, data)
 
 		// return load_texture("assets/textures/test.png")
 	}
@@ -131,18 +131,18 @@ load_model :: proc(path: string) -> (model: Model) {
 			pbr_metallic_roughness := material.pbr_metallic_roughness
 			if pbr_metallic_roughness.base_color_texture.texture != nil {
 				image := pbr_metallic_roughness.base_color_texture.texture.image_
-				mat.albedo = load_image_texture(image, base_path)
+				mat.albedo = load_image_texture(state, image, base_path)
 			}
 		} else if material.has_pbr_specular_glossiness {
 			if material.pbr_specular_glossiness.diffuse_texture.texture != nil {
 				image := material.pbr_specular_glossiness.diffuse_texture.texture.image_
-				mat.albedo = load_image_texture(image, base_path)
+				mat.albedo = load_image_texture(state, image, base_path)
 			}
 		}
 
 		if material.normal_texture.texture != nil {
 			image := material.normal_texture.texture.image_
-			mat.normal = load_image_texture(image, base_path)
+			mat.normal = load_image_texture(state, image, base_path)
 		}
 
 		append(&model.materials, mat)
@@ -151,24 +151,24 @@ load_model :: proc(path: string) -> (model: Model) {
 	return
 }
 
-release_model :: proc(model: Model) {
-	for mesh in model.meshes do release_mesh(mesh)
+release_model :: proc(state: State, model: Model) {
+	for mesh in model.meshes do release_mesh(state, mesh)
 	delete(model.meshes)
 
 	for mat in model.materials {
-		release_texture(mat.albedo)
-		release_texture(mat.normal)
+		release_texture(state, mat.albedo)
+		release_texture(state, mat.normal)
 	}
 	delete(model.materials)
 }
 
-draw_model :: proc(model: Model) {
-	assert(current_frame != nil)
+draw_model :: proc(state: State, model: Model) {
+	assert(state.current_frame != nil)
 
 	for i in 0 ..< len(model.meshes) {
 		mat := model.materials[i]
 		mesh := model.meshes[i]
-		bind_textures({mat.albedo, mat.normal})
-		draw_mesh(mesh)
+		bind_textures(state, {mat.albedo, mat.normal})
+		draw_mesh(state, mesh)
 	}
 }

@@ -39,8 +39,11 @@ main :: proc() {
 	config := load_config() or_else panic("Failed to load config")
 	log.debugf("Config: %v", config)
 
-	init_engine("Jord", config)
-	defer destroy_engine()
+	state := state_init("Jord", config.width, config.height, config.resizable)
+	defer state_destroy(state)
+
+	renderer_3d := renderer_3d_init(state)
+	defer renderer_3d_destroy(state, renderer_3d)
 
 	aspect_ratio := f32(config.width) / f32(config.height)
 	ubo := UBO {
@@ -48,14 +51,14 @@ main :: proc() {
 		projection = linalg.matrix4_perspective_f32(linalg.PI / 4, aspect_ratio, 0.1, 100.0),
 	}
 
-	damaged_helm := load_model("assets/models/island_tree_02/island_tree.glb")
-	defer release_model(damaged_helm)
+	damaged_helm := load_model(state, "assets/models/island_tree_02/island_tree.glb")
+	defer release_model(state, damaged_helm)
 
 	rotation: f32 = 0
 
 	delta: f64
-	main_loop: for run_engine(&delta) {
-		if e, ok := query_event(WindowEvent); ok {
+	main_loop: for state_run(&state, &delta) {
+		if e, ok := query_event(state, WindowEvent); ok {
 			aspect_ratio := f32(e.data1) / f32(e.data2)
 			ubo.projection = linalg.matrix4_perspective_f32(
 				linalg.PI / 4,
@@ -65,8 +68,8 @@ main :: proc() {
 			)
 		}
 
-		if is_key_down(sdl.K_ESCAPE) {
-			ctx.is_running = false
+		if is_key_down(state, sdl.K_ESCAPE) {
+			state.is_running = false
 			break main_loop
 		}
 
@@ -74,10 +77,10 @@ main :: proc() {
 		ubo.model = linalg.matrix4_rotate_f32(linalg.to_radians(rotation), {0, 1, 0})
 		// linalg.matrix4_rotate_f32(linalg.PI / 2, {1, 0, 0})
 
-		begin_frame({0.15, 0.15, 0.25, 1.0})
-		bind_3d_pipeline()
-		bind_ubo(ubo)
-		draw_model(damaged_helm)
-		end_frame()
+		if frame(&state, {0.15, 0.15, 0.25, 1.0}) {
+			renderer_3d_bind(state, renderer_3d)
+			bind_ubo(state, ubo)
+			draw_model(state, damaged_helm)
+		}
 	}
 }
