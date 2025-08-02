@@ -5,11 +5,6 @@ import "core:mem"
 
 import sdl "vendor:sdl3"
 
-Vertex3D :: struct {
-	position:  [3]f32,
-	tex_coord: [2]f32,
-}
-
 Mesh :: struct {
 	vertex_buffer: ^sdl.GPUBuffer,
 	index_buffer:  ^sdl.GPUBuffer,
@@ -31,38 +26,38 @@ create_mesh_aos :: proc(vertices: []$T, indices: []$I) -> (mesh: Mesh) {
 	}
 
 	mesh.vertex_buffer = sdl.CreateGPUBuffer(
-		ctx.device,
+		state.device,
 		{usage = {.VERTEX}, size = u32(vertex_buffer_size)},
 	)
 	assert(mesh.vertex_buffer != nil, "Failed to create vertex buffer")
-	sdl.SetGPUBufferName(ctx.device, mesh.vertex_buffer, "VertexBuffer")
+	sdl.SetGPUBufferName(state.device, mesh.vertex_buffer, "VertexBuffer")
 
 	mesh.index_buffer = sdl.CreateGPUBuffer(
-		ctx.device,
+		state.device,
 		{usage = {.INDEX}, size = u32(index_buffer_size)},
 	)
 	assert(mesh.index_buffer != nil, "Failed to create index buffer")
-	sdl.SetGPUBufferName(ctx.device, mesh.index_buffer, "IndexBuffer")
+	sdl.SetGPUBufferName(state.device, mesh.index_buffer, "IndexBuffer")
 
 	//Upload to buffers
 	{
 		transfer_buffer := sdl.CreateGPUTransferBuffer(
-			ctx.device,
+			state.device,
 			{usage = .UPLOAD, size = u32(vertex_buffer_size + index_buffer_size)},
 		)
 		assert(transfer_buffer != nil, "Failed to create transfer buffer")
-		defer sdl.ReleaseGPUTransferBuffer(ctx.device, transfer_buffer)
+		defer sdl.ReleaseGPUTransferBuffer(state.device, transfer_buffer)
 
-		transfer_buffer_ptr := sdl.MapGPUTransferBuffer(ctx.device, transfer_buffer, false)
+		transfer_buffer_ptr := sdl.MapGPUTransferBuffer(state.device, transfer_buffer, false)
 		mem.copy(transfer_buffer_ptr, raw_data(vertices), vertex_buffer_size)
 		index_tranfer_buffer_ptr := mem.ptr_offset(
 			cast(^u8)transfer_buffer_ptr,
 			vertex_buffer_size,
 		)
 		mem.copy(index_tranfer_buffer_ptr, raw_data(indices), index_buffer_size)
-		sdl.UnmapGPUTransferBuffer(ctx.device, transfer_buffer)
+		sdl.UnmapGPUTransferBuffer(state.device, transfer_buffer)
 
-		cmd_buff := sdl.AcquireGPUCommandBuffer(ctx.device)
+		cmd_buff := sdl.AcquireGPUCommandBuffer(state.device)
 		copy_pass := sdl.BeginGPUCopyPass(cmd_buff)
 
 		sdl.UploadToGPUBuffer(
@@ -102,27 +97,27 @@ create_mesh :: proc {
 }
 
 release_mesh :: proc(mesh: Mesh) {
-	sdl.ReleaseGPUBuffer(ctx.device, mesh.vertex_buffer)
-	sdl.ReleaseGPUBuffer(ctx.device, mesh.index_buffer)
+	sdl.ReleaseGPUBuffer(state.device, mesh.vertex_buffer)
+	sdl.ReleaseGPUBuffer(state.device, mesh.index_buffer)
 }
 
 draw_mesh :: proc(mesh: Mesh, index_count: u32 = 0) {
-	assert(current_frame != nil)
+	assert(state.current_frame != nil)
 
 	vertex_bindings := []sdl.GPUBufferBinding{{buffer = mesh.vertex_buffer}}
 	sdl.BindGPUVertexBuffers(
-		current_frame.render_pass,
+		state.current_frame.render_pass,
 		0,
 		raw_data(vertex_bindings),
 		u32(len(vertex_bindings)),
 	)
 	sdl.BindGPUIndexBuffer(
-		current_frame.render_pass,
+		state.current_frame.render_pass,
 		{buffer = mesh.index_buffer},
 		mesh.index_type,
 	)
 	sdl.DrawGPUIndexedPrimitives(
-		current_frame.render_pass,
+		state.current_frame.render_pass,
 		index_count == 0 ? u32(mesh.index_count) : index_count,
 		1,
 		0,

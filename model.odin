@@ -163,7 +163,7 @@ release_model :: proc(model: Model) {
 }
 
 draw_model :: proc(model: Model) {
-	assert(current_frame != nil)
+	assert(state.current_frame != nil)
 
 	for i in 0 ..< len(model.meshes) {
 		mat := model.materials[i]

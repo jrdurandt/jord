@@ -1,5 +1,6 @@
 package main
 
+import "core:fmt"
 import "core:log"
 import "core:math/linalg"
 import "core:mem"
@@ -39,8 +40,11 @@ main :: proc() {
 	config := load_config() or_else panic("Failed to load config")
 	log.debugf("Config: %v", config)
 
-	init_engine("Jord", config)
-	defer destroy_engine()
+	init_state("Jord", config.width, config.height, config.resizable)
+	defer destroy_state()
+
+	renderer_3d := renderer_3d_init()
+	defer renderer_3d_destroy(renderer_3d)
 
 	aspect_ratio := f32(config.width) / f32(config.height)
 	ubo := UBO {
@@ -54,7 +58,7 @@ main :: proc() {
 	rotation: f32 = 0
 
 	delta: f64
-	main_loop: for run_engine(&delta) {
+	main_loop: for run(&delta) {
 		if e, ok := query_event(WindowEvent); ok {
 			aspect_ratio := f32(e.data1) / f32(e.data2)
 			ubo.projection = linalg.matrix4_perspective_f32(
@@ -66,7 +70,7 @@ main :: proc() {
 		}
 
 		if is_key_down(sdl.K_ESCAPE) {
-			ctx.is_running = false
+			state.is_running = false
 			break main_loop
 		}
 
@@ -74,10 +78,10 @@ main :: proc() {
 		ubo.model = linalg.matrix4_rotate_f32(linalg.to_radians(rotation), {0, 1, 0})
 		// linalg.matrix4_rotate_f32(linalg.PI / 2, {1, 0, 0})
 
-		begin_frame({0.15, 0.15, 0.25, 1.0})
-		bind_3d_pipeline()
-		bind_ubo(ubo)
-		draw_model(damaged_helm)
-		end_frame()
+		if frame({0.15, 0.15, 0.25, 1.0}) {
+			renderer_3d_bind(renderer_3d)
+			bind_ubo(ubo)
+			draw_model(damaged_helm)
+		}
 	}
 }

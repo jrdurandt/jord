@@ -35,7 +35,7 @@ load_texture_from_surface :: proc(
 	height := surface.h
 
 	texture := sdl.CreateGPUTexture(
-		ctx.device,
+		state.device,
 		{
 			type = .D2,
 			format = .R8G8B8A8_UNORM,
@@ -47,22 +47,22 @@ load_texture_from_surface :: proc(
 		},
 	)
 	assert(texture != nil, "Failed to create GPU texture")
-	sdl.SetGPUTextureName(ctx.device, texture, "TODO")
+	sdl.SetGPUTextureName(state.device, texture, "TODO")
 
 	tex_size := width * height * 4
 	//Upload to GPU
 	{
 		transfer_buffer := sdl.CreateGPUTransferBuffer(
-			ctx.device,
+			state.device,
 			{usage = .UPLOAD, size = u32(tex_size)},
 		)
-		defer sdl.ReleaseGPUTransferBuffer(ctx.device, transfer_buffer)
+		defer sdl.ReleaseGPUTransferBuffer(state.device, transfer_buffer)
 
-		texture_transfer_ptr := sdl.MapGPUTransferBuffer(ctx.device, transfer_buffer, false)
+		texture_transfer_ptr := sdl.MapGPUTransferBuffer(state.device, transfer_buffer, false)
 		mem.copy(texture_transfer_ptr, surface.pixels, int(tex_size))
-		sdl.UnmapGPUTransferBuffer(ctx.device, transfer_buffer)
+		sdl.UnmapGPUTransferBuffer(state.device, transfer_buffer)
 
-		cmd_buff := sdl.AcquireGPUCommandBuffer(ctx.device)
+		cmd_buff := sdl.AcquireGPUCommandBuffer(state.device)
 		copy_pass := sdl.BeginGPUCopyPass(cmd_buff)
 
 		sdl.UploadToGPUTexture(
@@ -76,7 +76,7 @@ load_texture_from_surface :: proc(
 	}
 
 	sampler := sdl.CreateGPUSampler(
-		ctx.device,
+		state.device,
 		{
 			min_filter = min_filter,
 			mag_filter = mag_filter,
@@ -140,18 +140,18 @@ load_texture :: proc {
 }
 
 release_texture :: proc(texture: Texture) {
-	sdl.ReleaseGPUTexture(ctx.device, texture.handle)
-	sdl.ReleaseGPUSampler(ctx.device, texture.sampler)
+	sdl.ReleaseGPUTexture(state.device, texture.handle)
+	sdl.ReleaseGPUSampler(state.device, texture.sampler)
 }
 
 bind_texture :: proc(texture: Texture, slot: int = 0) {
-	assert(current_frame != nil)
+	assert(state.current_frame != nil)
 
 	sampler_bindings := []sdl.GPUTextureSamplerBinding {
 		{texture = texture.handle, sampler = texture.sampler},
 	}
 	sdl.BindGPUFragmentSamplers(
-		current_frame.render_pass,
+		state.current_frame.render_pass,
 		u32(slot),
 		raw_data(sampler_bindings),
 		u32(len(sampler_bindings)),
@@ -159,7 +159,7 @@ bind_texture :: proc(texture: Texture, slot: int = 0) {
 }
 
 bind_textures :: proc(textures: []Texture) {
-	assert(current_frame != nil)
+	assert(state.current_frame != nil)
 
 	sampler_bindings := make([]sdl.GPUTextureSamplerBinding, len(textures), context.temp_allocator)
 	for i in 0 ..< len(textures) {
@@ -170,7 +170,7 @@ bind_textures :: proc(textures: []Texture) {
 		}
 	}
 	sdl.BindGPUFragmentSamplers(
-		current_frame.render_pass,
+		state.current_frame.render_pass,
 		0,
 		raw_data(sampler_bindings),
 		u32(len(sampler_bindings)),
