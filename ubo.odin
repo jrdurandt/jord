@@ -8,8 +8,8 @@ UBO :: struct {
 	projection: matrix[4, 4]f32,
 }
 
-bind_ubo :: proc(using state: State, ubo: UBO, slot: int = 0) {
-	assert(current_frame != nil)
+bind_ubo :: proc(ubo: UBO, slot: int = 0) {
+	assert(state.current_frame != nil)
 	ubo := ubo
-	sdl.PushGPUVertexUniformData(current_frame.cmd_buff, u32(slot), &ubo, size_of(ubo))
+	sdl.PushGPUVertexUniformData(state.current_frame.cmd_buff, u32(slot), &ubo, size_of(ubo))
 }

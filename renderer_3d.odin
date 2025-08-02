@@ -13,20 +13,20 @@ Renderer3D :: struct {
 	pipeline: ^sdl.GPUGraphicsPipeline,
 }
 
-renderer_3d_init :: proc(using state: State) -> (renderer: Renderer3D) {
+renderer_3d_init :: proc() -> (renderer: Renderer3D) {
 	vertex_shader := load_shader(
-		device,
+		state.device,
 		"assets/shaders/compiled/basic.vert.spv",
 		num_uniform_buffers = 1,
 	)
-	defer sdl.ReleaseGPUShader(device, vertex_shader)
+	defer sdl.ReleaseGPUShader(state.device, vertex_shader)
 
 	fragment_shader := load_shader(
-		device,
+		state.device,
 		"assets/shaders/compiled/basic.frag.spv",
 		num_samplers = 1,
 	)
-	defer sdl.ReleaseGPUShader(device, fragment_shader)
+	defer sdl.ReleaseGPUShader(state.device, fragment_shader)
 
 	vertex_attributes := [?]sdl.GPUVertexAttribute {
 		{location = 0, offset = u32(offset_of(Vertex3D, position)), format = .FLOAT3},
@@ -39,7 +39,7 @@ renderer_3d_init :: proc(using state: State) -> (renderer: Renderer3D) {
 
 	color_target_descriptions := [?]sdl.GPUColorTargetDescription {
 		{
-			format = sdl.GetGPUSwapchainTextureFormat(device, window),
+			format = sdl.GetGPUSwapchainTextureFormat(state.device, state.window),
 			blend_state = {
 				enable_blend = true,
 				color_blend_op = .ADD,
@@ -77,16 +77,16 @@ renderer_3d_init :: proc(using state: State) -> (renderer: Renderer3D) {
 		rasterizer_state = sdl.GPURasterizerState{fill_mode = .FILL},
 	}
 
-	renderer.pipeline = sdl.CreateGPUGraphicsPipeline(device, create_info)
+	renderer.pipeline = sdl.CreateGPUGraphicsPipeline(state.device, create_info)
 	assert(renderer.pipeline != nil, "Failed to create 3D graphics pipeline")
 	return
 }
 
-renderer_3d_destroy :: proc(using state: State, renderer: Renderer3D) {
-	sdl.ReleaseGPUGraphicsPipeline(device, renderer.pipeline)
+renderer_3d_destroy :: proc(renderer: Renderer3D) {
+	sdl.ReleaseGPUGraphicsPipeline(state.device, renderer.pipeline)
 }
 
-renderer_3d_bind :: proc(using state: State, renderer: Renderer3D) {
-	assert(current_frame != nil)
-	sdl.BindGPUGraphicsPipeline(current_frame.render_pass, renderer.pipeline)
+renderer_3d_bind :: proc(renderer: Renderer3D) {
+	assert(state.current_frame != nil)
+	sdl.BindGPUGraphicsPipeline(state.current_frame.render_pass, renderer.pipeline)
 }

@@ -30,6 +30,8 @@ State :: struct {
 	events:        [dynamic]Event,
 }
 
+state: ^State
+
 @(private)
 create_depth_texture :: proc(device: ^sdl.GPUDevice, width, height: i32) -> ^sdl.GPUTexture {
 	return sdl.CreateGPUTexture(
@@ -47,13 +49,11 @@ create_depth_texture :: proc(device: ^sdl.GPUDevice, width, height: i32) -> ^sdl
 	)
 }
 
-state_init :: proc(
+init_state :: proc(
 	title: cstring,
 	width, height: int,
 	resizeable: bool = false,
 	debug: bool = ODIN_DEBUG,
-) -> (
-	s: State,
 ) {
 	fmt.printfln(
 		"State init (title: %s, width: %d, height: %d, resizable: %v, debug: %v)",
@@ -72,99 +72,108 @@ state_init :: proc(
 		flags |= {.RESIZABLE}
 	}
 
-	s.window = sdl.CreateWindow(title, i32(width), i32(height), flags)
-	assert(s.window != nil, "Failed to create window")
+	state = new(State)
 
-	s.device = sdl.CreateGPUDevice({.SPIRV}, debug, nil)
-	assert(s.device != nil, "Failed to create GPU device")
+	state.window = sdl.CreateWindow(title, i32(width), i32(height), flags)
+	assert(state.window != nil, "Failed to create window")
 
-	assert(sdl.ClaimWindowForGPUDevice(s.device, s.window), "Failed to claim window for device")
-	fmt.printfln("GPU device driver: %s", sdl.GetGPUDeviceDriver(s.device))
+	state.device = sdl.CreateGPUDevice({.SPIRV}, debug, nil)
+	assert(state.device != nil, "Failed to create GPU device")
+
+	assert(
+		sdl.ClaimWindowForGPUDevice(state.device, state.window),
+		"Failed to claim window for device",
+	)
+	fmt.printfln("GPU device driver: %s", sdl.GetGPUDeviceDriver(state.device))
 
 	present_mode := sdl.GPUPresentMode.VSYNC
-	if sdl.WindowSupportsGPUPresentMode(s.device, s.window, .IMMEDIATE) {
+	if sdl.WindowSupportsGPUPresentMode(state.device, state.window, .IMMEDIATE) {
 		present_mode = .IMMEDIATE
-	} else if sdl.WindowSupportsGPUPresentMode(s.device, s.window, .MAILBOX) {
+	} else if sdl.WindowSupportsGPUPresentMode(state.device, state.window, .MAILBOX) {
 		present_mode = .MAILBOX
 	}
 	fmt.printfln("Present mode: %s", present_mode)
 
 	assert(
-		sdl.SetGPUSwapchainParameters(s.device, s.window, .SDR, present_mode),
+		sdl.SetGPUSwapchainParameters(state.device, state.window, .SDR, present_mode),
 		"Unable to set swapchain params",
 	)
 
-	s.events = make([dynamic]Event)
-	s.depth_tex = create_depth_texture(s.device, i32(width), i32(height))
-
-	return
+	state.events = make([dynamic]Event)
+	state.depth_tex = create_depth_texture(state.device, i32(width), i32(height))
 }
 
-state_destroy :: proc(using state: State) {
-	if current_frame != nil {
-		free(current_frame)
+destroy_state :: proc() {
+	if state.current_frame != nil {
+		free(state.current_frame)
 	}
 
-	delete(events)
-	sdl.ReleaseGPUTexture(device, depth_tex)
-	sdl.ReleaseWindowFromGPUDevice(device, window)
-	sdl.DestroyGPUDevice(device)
-	sdl.DestroyWindow(window)
+	delete(state.events)
+	sdl.ReleaseGPUTexture(state.device, state.depth_tex)
+	sdl.ReleaseWindowFromGPUDevice(state.device, state.window)
+	sdl.DestroyGPUDevice(state.device)
+	sdl.DestroyWindow(state.window)
 	sdl.Quit()
+	free(state)
+	state = nil
 }
 
-state_run :: proc(using state: ^State, delta: ^f64) -> bool {
-	is_running = sdl.ShowWindow(window)
+run :: proc(delta: ^f64) -> bool {
+	state.is_running = sdl.ShowWindow(state.window)
 
 	curr_tick := f64(sdl.GetTicks())
-	delta^ = curr_tick - last_tick
-	last_tick = curr_tick
+	delta^ = curr_tick - state.last_tick
+	state.last_tick = curr_tick
 
-	clear(&events)
+	clear(&state.events)
 	event: sdl.Event
 	for sdl.PollEvent(&event) {
 		#partial switch event.type {
 		case .QUIT:
-			is_running = false
+			state.is_running = false
 		case .WINDOW_RESIZED:
-			sdl.ReleaseGPUTexture(device, depth_tex)
-			depth_tex = create_depth_texture(device, event.window.data1, event.window.data2)
-			append(&events, event.window)
+			sdl.ReleaseGPUTexture(state.device, state.depth_tex)
+			state.depth_tex = create_depth_texture(
+				state.device,
+				event.window.data1,
+				event.window.data2,
+			)
+			append(&state.events, event.window)
 		case .KEY_DOWN, .KEY_UP:
-			append(&events, event.key)
+			append(&state.events, event.key)
 		case .MOUSE_MOTION:
-			append(&events, event.motion)
+			append(&state.events, event.motion)
 		case .MOUSE_BUTTON_DOWN, .MOUSE_BUTTON_UP:
-			append(&events, event.button)
+			append(&state.events, event.button)
 		case .MOUSE_WHEEL:
-			append(&events, event.wheel)
+			append(&state.events, event.wheel)
 		}
 	}
 
-	return is_running
+	return state.is_running
 }
 
-query_event :: proc(using state: State, $T: typeid) -> (event: ^T, found: bool) {
-	for e, i in events {
+query_event :: proc($T: typeid) -> (event: ^T, found: bool) {
+	for e, i in state.events {
 		#partial switch event in e {
 		case T:
-			return &events[i].(T), true
+			return &state.events[i].(T), true
 		}
 	}
 	return nil, false
 }
 
-is_key_down :: proc(state: State, key: sdl.Keycode) -> bool {
-	e := query_event(state, KeyboardEvent) or_return
+is_key_down :: proc(key: sdl.Keycode) -> bool {
+	e := query_event(KeyboardEvent) or_return
 	return e.key == key && e.down
 }
 
-is_key_up :: proc(state: State, key: sdl.Keycode) -> bool {
-	e := query_event(state, KeyboardEvent) or_return
+is_key_up :: proc(key: sdl.Keycode) -> bool {
+	e := query_event(KeyboardEvent) or_return
 	return e.key == key && !e.down
 }
 
-is_key_repeat :: proc(state: State, key: sdl.Keycode) -> bool {
-	e := query_event(state, KeyboardEvent) or_return
+is_key_repeat :: proc(key: sdl.Keycode) -> bool {
+	e := query_event(KeyboardEvent) or_return
 	return e.key == key && e.repeat
 }
