@@ -43,10 +43,16 @@ main :: proc() {
 	init_engine("Jord", config.width, config.height, config.resizable)
 	defer destroy_engine()
 
-	aspect_ratio := f32(config.width) / f32(config.height)
-	ubo := UBO {
-		view       = linalg.matrix4_look_at_f32({0, 5, 5}, {0, 1, 0}, {0, 1, 0}),
-		projection = linalg.matrix4_perspective_f32(linalg.PI / 4, aspect_ratio, 0.1, 100.0),
+	width, height := get_window_size()
+	aspect_ratio := f32(width) / f32(height)
+	camera := Camera3D {
+		position     = {0, 5, 5},
+		target       = {0, 1, 0},
+		up           = {0, 1, 0},
+		fov          = linalg.PI / 4,
+		aspect_ratio = aspect_ratio,
+		near         = 0.1,
+		far          = 100.0,
 	}
 
 	damaged_helm := load_model("assets/models/island_tree_02/island_tree.glb")
@@ -56,14 +62,11 @@ main :: proc() {
 
 	delta: f64
 	main_loop: for run_engine(&delta) {
+		update_camera(&camera)
+
 		if e, ok := query_event(WindowEvent); ok {
 			aspect_ratio := f32(e.data1) / f32(e.data2)
-			ubo.projection = linalg.matrix4_perspective_f32(
-				linalg.PI / 4,
-				aspect_ratio,
-				0.1,
-				100.0,
-			)
+			camera.aspect_ratio = aspect_ratio
 		}
 
 		if is_key_down(sdl.K_ESCAPE) {
@@ -72,11 +75,10 @@ main :: proc() {
 		}
 
 		rotation += 90 * f32(delta) / 1000.0
-		ubo.model = linalg.matrix4_rotate_f32(linalg.to_radians(rotation), {0, 1, 0})
-		// linalg.matrix4_rotate_f32(linalg.PI / 2, {1, 0, 0})
+		camera.model = linalg.matrix4_rotate_f32(linalg.to_radians(rotation), {0, 1, 0})
 
 		if frame({0.15, 0.15, 0.25, 1.0}) {
-			bind_ubo(ubo)
+			bind_camera(camera)
 			draw_model(damaged_helm)
 		}
 	}

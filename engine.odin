@@ -172,6 +172,11 @@ run_engine :: proc(delta: ^f64) -> bool {
 	return state.is_running
 }
 
+get_window_size :: proc() -> (width, height: i32) {
+	sdl.GetWindowSize(state.window, &width, &height)
+	return
+}
+
 query_event :: proc($T: typeid) -> (event: ^T, found: bool) {
 	for e, i in state.events {
 		#partial switch event in e {
