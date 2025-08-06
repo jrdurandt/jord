@@ -1,6 +1,5 @@
 package main
 
-import "core:log"
 import "core:mem"
 
 import sdl "vendor:sdl3"
